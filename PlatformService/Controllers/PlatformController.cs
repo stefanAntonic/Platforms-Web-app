@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using PlatformService.Dto;
 using PlatformService.Interface;
 using PlatformService.Models;
+using PlatformService.SyncDataServices.Http;
 
 namespace PlatformService.Controllers;
 
@@ -12,11 +13,17 @@ public class PlatformController : ControllerBase
 {
     private readonly IPlatformRepository _repository;
     private readonly IMapper _mapper;
+    private readonly ICommandDataClient _commandDataClient;
 
-    public PlatformController(IPlatformRepository repository, IMapper  mapper)
+    public PlatformController(
+        IPlatformRepository repository,
+        IMapper  mapper,
+        ICommandDataClient commandDataClient
+    )
     {
         _repository = repository;
         _mapper = mapper;
+        _commandDataClient = commandDataClient;
     }
 
     [HttpGet]
@@ -55,7 +62,7 @@ public class PlatformController : ControllerBase
     [HttpPost]
     [ProducesResponseType(201)]
     [ProducesResponseType(400)]
-    public IActionResult CreatePlatform([FromBody] PlatformDto? platform)
+    public async  Task<IActionResult> CreatePlatform([FromBody] PlatformDto? platform)
     {
             if (platform == null)
             {
@@ -75,6 +82,15 @@ public class PlatformController : ControllerBase
                     return BadRequest();    
             }
             var platformMap =  _mapper.Map<Platform>(platform);
+            try
+            {
+                await _commandDataClient.SendPlatformToCommand(_mapper.Map<PlatformDto>(platformMap));
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"--> Cloud not send synchronously: {e.Message} ");
+                throw;
+            }
             if(!_repository.CreatePlatform(platformMap))
             {
                 ModelState.AddModelError("Platform", "Something went wrong while creating platform");
