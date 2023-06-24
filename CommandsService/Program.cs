@@ -15,8 +15,9 @@ builder.Services.AddScoped<IPlatformRepository, PlatformRepository>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var app = builder.Build();
 builder.Services.AddDbContext<CommandsDbContext>(options => options.UseInMemoryDatabase("InMem"));
+
+var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
