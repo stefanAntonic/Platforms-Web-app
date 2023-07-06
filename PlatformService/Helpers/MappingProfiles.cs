@@ -9,5 +9,6 @@ public class MappingProfiles : Profile
     public MappingProfiles()
     {
         CreateMap<Platform, PlatformDto>().ReverseMap();
+        CreateMap<Platform, PlatformPublishDto>().ReverseMap();
     }
 }

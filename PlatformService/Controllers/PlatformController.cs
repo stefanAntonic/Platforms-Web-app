@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using PlatformService.AsyncDataServices;
 using PlatformService.Dto;
 using PlatformService.Interface;
 using PlatformService.Models;
@@ -14,16 +15,19 @@ public class PlatformController : ControllerBase
     private readonly IPlatformRepository _repository;
     private readonly IMapper _mapper;
     private readonly ICommandDataClient _commandDataClient;
+    private readonly IMessageBusClient _messageBusClient;
 
     public PlatformController(
         IPlatformRepository repository,
         IMapper  mapper,
-        ICommandDataClient commandDataClient
+        ICommandDataClient commandDataClient,
+        IMessageBusClient messageBusClient 
     )
     {
         _repository = repository;
         _mapper = mapper;
         _commandDataClient = commandDataClient;
+        _messageBusClient = messageBusClient;
     }
 
     [HttpGet]
@@ -82,6 +86,8 @@ public class PlatformController : ControllerBase
                     return BadRequest();    
             }
             var platformMap =  _mapper.Map<Platform>(platform);
+            
+            // Sync messaging   
             try
             {
                 await _commandDataClient.SendPlatformToCommand(_mapper.Map<PlatformDto>(platformMap));
@@ -89,8 +95,21 @@ public class PlatformController : ControllerBase
             catch (Exception e)
             {
                 Console.WriteLine($"--> Cloud not send synchronously: {e.Message} ");
-                throw;
             }
+            
+            // Async messaging
+            try
+            {
+                var platformPublishMap = _mapper.Map<PlatformPublishDto>(platformMap);
+                platformPublishMap.Event = "Platform_Published";
+                _messageBusClient.PublishNewPlatform(platformPublishMap);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"--> Cloud not send Asynchronously: {e.Message} ");
+
+            }
+            
             if(!_repository.CreatePlatform(platformMap))
             {
                 ModelState.AddModelError("Platform", "Something went wrong while creating platform");
